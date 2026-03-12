@@ -329,9 +329,9 @@ HTML_TEMPLATE = r"""
 <title>Pain Signals</title>
 <style>
   :root {
-    --bg: #0a0a0a; --surface: #141414; --border: #252525;
-    --text: #e0e0e0; --text-muted: #888; --accent: #ff6b35;
-    --pain-high: #ff4444; --pain-med: #ffaa00; --pain-low: #666;
+    --bg: #fafafa; --surface: #ffffff; --border: #e2e2e2;
+    --text: #1a1a1a; --text-muted: #666; --accent: #e04e1c;
+    --pain-high: #d32f2f; --pain-med: #e67e00; --pain-low: #999;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -358,7 +358,7 @@ HTML_TEMPLATE = r"""
   }
   .input-row input::placeholder { color: var(--text-muted); }
   .input-row button {
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    background: var(--accent); color: #ffffff; border: none; border-radius: 8px;
     padding: 0.75rem 1.5rem; font-size: 0.95rem; font-weight: 600;
     cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
   }
@@ -371,7 +371,7 @@ HTML_TEMPLATE = r"""
   }
   .status .spinner {
     display: inline-block; width: 24px; height: 24px;
-    border: 3px solid var(--border); border-top-color: var(--accent);
+    border: 3px solid #ddd; border-top-color: var(--accent);
     border-radius: 50%; animation: spin 0.8s linear infinite;
     margin-bottom: 1rem;
   }
@@ -382,6 +382,7 @@ HTML_TEMPLATE = r"""
     display: flex; gap: 1.5rem; flex-wrap: wrap;
     margin-bottom: 2rem; padding: 1rem 1.25rem;
     background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
   .stat { display: flex; flex-direction: column; }
   .stat-val { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
@@ -398,20 +399,20 @@ HTML_TEMPLATE = r"""
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     padding: 1.25rem; margin-bottom: 0.75rem; transition: border-color 0.2s;
   }
-  .post:hover { border-color: #333; }
+  .post:hover { border-color: #ccc; }
   .post-header { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem; }
   .pain-badge {
     flex-shrink: 0; padding: 0.2rem 0.6rem; border-radius: 6px;
     font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
   }
-  .pain-badge.high { background: rgba(255,68,68,0.15); color: var(--pain-high); }
-  .pain-badge.medium { background: rgba(255,170,0,0.15); color: var(--pain-med); }
-  .pain-badge.low { background: rgba(100,100,100,0.15); color: var(--pain-low); }
+  .pain-badge.high { background: #fde8e8; color: var(--pain-high); }
+  .pain-badge.medium { background: #fff3e0; color: var(--pain-med); }
+  .pain-badge.low { background: #f0f0f0; color: var(--pain-low); }
   .post-title {
     font-weight: 600; font-size: 0.95rem; line-height: 1.4;
   }
   .post-title a { color: var(--text); text-decoration: none; }
-  .post-title a:hover { color: var(--accent); }
+  .post-title a:hover { color: var(--accent); text-decoration: underline; }
   .post-meta {
     display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;
   }
@@ -421,11 +422,11 @@ HTML_TEMPLATE = r"""
   }
   .post-body::after {
     content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-    height: 1.5em; background: linear-gradient(transparent, var(--surface));
+    height: 1.5em; background: linear-gradient(transparent, #ffffff);
   }
   .flair {
     display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.5rem;
-    background: rgba(255,255,255,0.06); border-radius: 4px; color: var(--text-muted);
+    background: #f0f0f0; border-radius: 4px; color: var(--text-muted);
   }
 
   /* Comments */
@@ -442,7 +443,7 @@ HTML_TEMPLATE = r"""
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     padding: 1rem; transition: border-color 0.2s;
   }
-  .theme-card:hover { border-color: #333; }
+  .theme-card:hover { border-color: #ccc; }
   .theme-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.25rem; }
   .theme-count { font-size: 0.8rem; color: var(--accent); margin-bottom: 0.5rem; }
   .theme-post {
