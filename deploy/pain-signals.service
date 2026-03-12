@@ -5,8 +5,8 @@ After=network.target
 [Service]
 User=kirill
 Group=kirill
-WorkingDirectory=/home/kirill/pain-signals
-ExecStart=/home/kirill/pain-signals/venv/bin/gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 120 app:app
+WorkingDirectory=/var/www/pain-signals
+ExecStart=/var/www/pain-signals/venv/bin/gunicorn --bind 127.0.0.1:5001 --workers 2 --timeout 120 app:app
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

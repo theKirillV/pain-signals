@@ -1,10 +1,10 @@
 #!/bin/bash
 # Run this on your Hetzner VPS
-# Usage: cd /home/kirill/pain-signals && sudo bash deploy/setup.sh
+# Usage: cd /var/www/pain-signals && sudo bash deploy/setup.sh
 
 set -e
 
-APP_DIR=/home/kirill/pain-signals
+APP_DIR=/var/www/pain-signals
 
 echo "==> Setting up Python venv"
 cd $APP_DIR
