@@ -285,6 +285,7 @@ def run_job(job_id, subreddit):
 # Routes
 # ---------------------------------------------------------------------------
 
+@app.route("/pain-signals/")
 @app.route("/pain-signals")
 def index():
     return render_template_string(HTML_TEMPLATE)
