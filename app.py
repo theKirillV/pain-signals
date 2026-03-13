@@ -6,6 +6,7 @@ Then open: http://localhost:5001/pain-signals
 """
 
 import json
+import logging
 import re
 import sys
 import threading
@@ -15,48 +16,76 @@ import urllib.request
 from datetime import datetime, timezone
 from flask import Flask, render_template_string, jsonify, request
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("pain-signals")
+
 app = Flask(__name__)
 
 # ---------------------------------------------------------------------------
-# HTTP (stdlib only, no requests needed)
+# HTTP — tries Reddit first, then falls back to Redlib mirrors (no API key)
 # ---------------------------------------------------------------------------
 
-USER_AGENT = "pain-signals/0.1 (research tool)"
-MAX_RETRIES = 3
+USER_AGENT = "pain-signals/0.1 (by /u/pain_signals_bot)"
+MAX_RETRIES = 2
 RETRY_DELAY = 2.0
 
+# Reddit direct + Redlib mirrors as fallback (no auth needed)
+REDDIT_HOSTS = [
+    "https://www.reddit.com",
+    "https://redlib.catsarch.com",
+    "https://redlib.r4fo.com",
+    "https://redlib.perennialte.ch",
+]
 
-def http_get(url, timeout=30, retries=MAX_RETRIES):
+# Track which host is currently working so we don't retry broken ones every call
+_current_host_idx = 0
+_host_lock = threading.Lock()
+
+
+def http_get(url, timeout=20):
+    """Fetch a single URL, raise on failure."""
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
     req = urllib.request.Request(url, headers=headers)
-    last_err = None
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            last_err = e
-            if 400 <= e.code < 500 and e.code != 429:
-                raise
-            delay = RETRY_DELAY * (2 ** attempt)
-            if e.code == 429:
-                ra = e.headers.get("Retry-After")
-                delay = float(ra) if ra and ra.isdigit() else delay + 1
-            time.sleep(delay)
-        except (urllib.error.URLError, OSError, TimeoutError) as e:
-            last_err = e
-            if attempt < retries - 1:
-                time.sleep(RETRY_DELAY * (attempt + 1))
-    raise last_err
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 def reddit_json(path, params=None):
+    """Fetch Reddit JSON, trying multiple hosts until one works."""
+    global _current_host_idx
     path = path.rstrip("/")
     if not path.endswith(".json"):
         path += ".json"
     qs = "&".join(f"{k}={v}" for k, v in (params or {}).items())
-    url = f"https://www.reddit.com{path}?raw_json=1" + (f"&{qs}" if qs else "")
-    return http_get(url)
+    suffix = f"{path}?raw_json=1" + (f"&{qs}" if qs else "")
+
+    with _host_lock:
+        start_idx = _current_host_idx
+
+    last_err = None
+    for offset in range(len(REDDIT_HOSTS)):
+        idx = (start_idx + offset) % len(REDDIT_HOSTS)
+        host = REDDIT_HOSTS[idx]
+        url = host + suffix
+        try:
+            data = http_get(url)
+            # Success — remember this host for next call
+            with _host_lock:
+                _current_host_idx = idx
+            if offset > 0:
+                log.info("Switched to host %s", host)
+            return data
+        except urllib.error.HTTPError as e:
+            last_err = e
+            log.warning("HTTP %d from %s%s", e.code, host, path)
+            if e.code == 404:
+                raise  # subreddit doesn't exist, don't try other hosts
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            last_err = e
+            log.warning("Failed %s: %s", host, e)
+        time.sleep(1)
+
+    raise last_err
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +161,8 @@ def fetch_posts(subreddit, sort="hot", limit=100, time_filter="month", max_pages
 
         try:
             data = reddit_json(f"/r/{subreddit}/{sort}", params)
-        except Exception:
+        except Exception as exc:
+            log.error("fetch_posts(%s/%s) page %d failed: %s", subreddit, sort, page, exc)
             break
 
         children = data.get("data", {}).get("children", [])
@@ -171,7 +201,8 @@ def fetch_posts(subreddit, sort="hot", limit=100, time_filter="month", max_pages
 def fetch_comments(permalink, limit=10):
     try:
         data = reddit_json(permalink, {"limit": str(limit), "sort": "top"})
-    except Exception:
+    except Exception as exc:
+        log.error("fetch_comments(%s) failed: %s", permalink, exc)
         return []
     if not isinstance(data, list) or len(data) < 2:
         return []
@@ -215,10 +246,11 @@ def analyze(subreddit):
     for sort in ["hot", "new", "top"]:
         try:
             posts = fetch_posts(subreddit, sort=sort, limit=100, time_filter="month", max_pages=3)
+            log.info("analyze(%s) sort=%s got %d posts", subreddit, sort, len(posts))
             for p in posts:
                 all_posts[p["id"]] = p
-        except Exception:
-            pass
+        except Exception as exc:
+            log.error("analyze(%s) sort=%s failed: %s", subreddit, sort, exc)
         time.sleep(1)
 
     posts = list(all_posts.values())
@@ -289,6 +321,22 @@ def run_job(job_id, subreddit):
 @app.route("/pain-signals")
 def index():
     return render_template_string(HTML_TEMPLATE)
+
+
+@app.route("/pain-signals/api/health")
+def health():
+    """Diagnostic endpoint — test Reddit connectivity."""
+    info = {"reddit_reachable": False, "active_host": None, "error": None}
+    try:
+        data = reddit_json("/r/test/hot", {"limit": "1"})
+        children = data.get("data", {}).get("children", [])
+        info["reddit_reachable"] = True
+        info["test_posts"] = len(children)
+        info["active_host"] = REDDIT_HOSTS[_current_host_idx]
+    except Exception as exc:
+        info["error"] = str(exc)
+        log.error("Health check failed: %s", exc)
+    return jsonify(info)
 
 
 @app.route("/pain-signals/api/scan", methods=["POST"])
